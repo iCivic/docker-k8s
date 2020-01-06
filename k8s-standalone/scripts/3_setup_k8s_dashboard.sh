@@ -1,23 +1,31 @@
-echo '安装Kubernetes Dashboard'
+scriptfolder=`pwd`
 
+echo '安装azk8spull'
+cd /tmp/littleTools
+chmod +x *.sh
+source /tmp/littleTools/azk8spull.sh
+source /tmp/littleTools/docker-tools.sh
+source /tmp/littleTools/kube-tools.sh
+docker pull kubernetesui/dashboard:v2.0.0-beta8
+docker pull kubernetesui/metrics-scraper:v1.0.1
+
+echo '安装Kubernetes Dashboard'
 # azk8spull k8s.gcr.io/kubernetes-dashboard-amd64:v1.10.1
 # docker image rm -f gcr.azk8s.cn/google_containers/kubernetes-dashboard-amd64:v1.10.1
 # docker image rm -f k8s.gcr.io/kubernetes-dashboard-amd64:v1.10.1
 # 解决 ImagePullBackOff 问题 kubectl describe pod kubernetes-dashboard -n kibe-system
-
-docker pull kubernetesui/dashboard:v2.0.0-beta8
-docker pull kubernetesui/metrics-scraper:v1.0.1
-
-cd /etc/kubernetes/manifests
+cd $scriptfolder && pwd
 rm -f /etc/kubernetes/manifests/kubernetes-dashboard.yaml
-curl -o /etc/kubernetes/manifests/kubernetes-dashboard.yaml https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-beta8/aio/deploy/recommended.yaml
-cp -f kubernetes-dashboard.yaml kubernetes-dashboard-v2.0.0-beta8.yaml
-sed -i '/      targetPort: 8443/a\  type: NodePort'  kubernetes-dashboard.yaml
-sed -i '/      targetPort: 8443/a\      nodePort: 32735'  kubernetes-dashboard.yaml
-sed -i '/            - --namespace=kubernetes-dashboard/i\            - --token-ttl=43200'  kubernetes-dashboard.yaml
-sed -i '/          image: kubernetesui/dashboard:v2.0.0-beta8/a\              value: english'  kubernetes-dashboard.yaml
-sed -i '/          image: kubernetesui/dashboard:v2.0.0-beta8/a\            - name: ACCEPT_LANGUAGE'  kubernetes-dashboard.yaml
-sed -i '/          image: kubernetesui/dashboard:v2.0.0-beta8/a\          env:'  kubernetes-dashboard.yaml
+cp -f $scriptfolder/kubernetes-dashboard.yaml /etc/kubernetes/manifests/kubernetes-dashboard.yaml
+#cd /etc/kubernetes/manifests
+#curl -o /etc/kubernetes/manifests/kubernetes-dashboard.yaml https://raw.githubusercontent.com/kubernetes/dashboard/v2.0.0-beta8/aio/deploy/recommended.yaml
+#cp -f kubernetes-dashboard.yaml kubernetes-dashboard-v2.0.0-beta8.yaml
+sed -i '/      targetPort: 8443/a\  type: NodePort'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
+sed -i '/      targetPort: 8443/a\      nodePort: 32735'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
+sed -i '/            - --namespace=kubernetes-dashboard/i\            - --token-ttl=43200'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
+sed -i '/          image: kubernetesui/dashboard:v2.0.0-beta8/a\              value: english'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
+sed -i '/          image: kubernetesui/dashboard:v2.0.0-beta8/a\            - name: ACCEPT_LANGUAGE'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
+sed -i '/          image: kubernetesui/dashboard:v2.0.0-beta8/a\          env:'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
 cat kubernetes-dashboard.yaml | grep 'type: NodePort'
 
 image: kubernetesui/dashboard:v2.0.0-beta8
@@ -80,7 +88,7 @@ kubectl delete secret kubernetes-dashboard-certs -n kubernetes-dashboard
 kubectl create secret generic kubernetes-dashboard-certs --from-file=dashboard.key --from-file=dashboard.crt -n kubernetes-dashboard
 echo '重新生成Pod'
 kubectl get pod -n kubernetes-dashboard
-kubectl delete pod kubernetes-dashboard-7d54d9fb5d-gp9dg -n kubernetes-dashboard
+kubectl delete pod kubernetes-dashboard-7d54d9fb5d-8rk7c -n kubernetes-dashboard
 echo '查看新的Pod'
 kubectl get pod -n kubernetes-dashboard
-kubectl describe pod kubernetes-dashboard-7d54d9fb5d-gp9dg -n kubernetes-dashboard
+kubectl describe pod kubernetes-dashboard-7d54d9fb5d-xfphz -n kubernetes-dashboard

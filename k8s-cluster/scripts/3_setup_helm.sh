@@ -28,6 +28,15 @@ cd /tmp
 curl https://raw.githubusercontent.com/helm/helm/master/scripts/get > setup_helm.sh
 chmod 700 setup_helm.sh && ./setup_helm.sh
 
+
+#从官网下载最新版本的二进制安装包到本地：https://github.com/kubernetes/helm/releases
+tar -zxvf /tmp/helm-v2.16.1-linux-amd64.tar.gz # 解压压缩包
+# 把 helm 指令放到bin目录下
+mv linux-amd64/helm /usr/local/bin/helm
+helm help # 验证
+
+
+
 # 切换至helm context
 kubectl config use-context helm@kubernetes
 # 安装helm, 使用授权好的serviceaccount
