@@ -2,6 +2,18 @@ echo '修改主机名'
 hostnamectl set-hostname k8smaster
 hostname
 
+# 设置固定IP
+#sed -i 's/BOOTPROTO=dhcp/BOOTPROTO=static/'  /etc/sysconfig/network-scripts/ifcfg-enp0s3
+#cp /etc/sysconfig/network-scripts/ifcfg-enp0s3 /etc/sysconfig/network-scripts/ifcfg-enp0s3.bak
+#cat <<EOF >> /etc/sysconfig/network-scripts/ifcfg-enp0s3
+#IPADDR=192.168.2.105
+#GATEWAY=192.168.2.1
+#DNS=192.168.2.1
+#DNS1=192.168.2.1
+#EOF
+#service network restart
+#reboot
+
 echo '关闭防火墙'
 systemctl disable firewalld
 systemctl stop firewalld 
