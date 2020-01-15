@@ -23,12 +23,12 @@ cp -f $scriptfolder/kubernetes-dashboard.yaml /etc/kubernetes/manifests/kubernet
 sed -i '/      targetPort: 8443/a\  type: NodePort'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
 sed -i '/      targetPort: 8443/a\      nodePort: 32735'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
 sed -i '/            - --namespace=kubernetes-dashboard/i\            - --token-ttl=43200'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
-sed -i '/          image: kubernetesui/dashboard:v2.0.0-beta8/a\              value: english'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
-sed -i '/          image: kubernetesui/dashboard:v2.0.0-beta8/a\            - name: ACCEPT_LANGUAGE'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
-sed -i '/          image: kubernetesui/dashboard:v2.0.0-beta8/a\          env:'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
-cat kubernetes-dashboard.yaml | grep 'type: NodePort'
-
-image: kubernetesui/dashboard:v2.0.0-beta8
+sed -i '/          image: kubernetesui\/dashboard:v2.0.0-beta8/a\              value: english'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
+sed -i '/          image: kubernetesui\/dashboard:v2.0.0-beta8/a\            - name: ACCEPT_LANGUAGE'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
+sed -i '/          image: kubernetesui\/dashboard:v2.0.0-beta8/a\          env:'  /etc/kubernetes/manifests/kubernetes-dashboard.yaml
+cat /etc/kubernetes/manifests/kubernetes-dashboard.yaml | grep 'type: NodePort'
+cat /etc/kubernetes/manifests/kubernetes-dashboard.yaml | grep 'nodePort: 32735'
+cat /etc/kubernetes/manifests/kubernetes-dashboard.yaml | grep 'name: ACCEPT_LANGUAGE'
 
 kubectl delete -f /etc/kubernetes/manifests/kubernetes-dashboard.yaml
 kubectl create -f /etc/kubernetes/manifests/kubernetes-dashboard.yaml
@@ -45,7 +45,7 @@ echo '创建kube-dashboard管理员'
 # kubernetes 1.16 之dashboard搭建 https://blog.csdn.net/allensandy/article/details/103048985
 # Kubernetes V1.16.2部署Dashboard V2.0(beta5) https://blog.csdn.net/weixin_45594593/article/details/102765715
 cd /etc/kubernetes/manifests
-rm -f dashboard-adminuser.yaml
+rm -f /etc/kubernetes/manifests/dashboard-adminuser.yaml
 touch dashboard-adminuser.yaml
 cat <<EOF > dashboard-adminuser.yaml
 kind: ClusterRoleBinding
@@ -74,11 +74,26 @@ metadata:
 EOF
 kubectl delete -f dashboard-adminuser.yaml
 kubectl create -f dashboard-adminuser.yaml
+
+echo "使用Token访问Dashboard: https://192.168.2.105:32735/"
 admin_token=`kubectl get secret -n kubernetes-dashboard | grep -Eo "admin[a-zA-Z0-9.-]+"`
 echo "admin_token: $admin_token"
 kubectl get secret "$admin_token" -o jsonpath={.data.token} -n kubernetes-dashboard | base64 -d
 
-echo '重新生成kube-dashboard证书'
+cd $scriptfolder && pwd
+
+# kubeconfig使用
+#kubectl create serviceaccount dashboard-admin -n kubernetes-dashboard
+#kubectl create clusterrolebinding dashboard-cluster-admin --clusterrole=cluster-admin --serviceaccount=kubernetes-dashboard:dashboard-admin
+kubectl describe secret -n kubernetes-dashboard "$admin_token"
+DASH_TOCKEN=$(kubectl get secret -n kubernetes-dashboard "$admin_token" -o jsonpath={.data.token}|base64 -d)
+kubectl config set-cluster kubernetes --server=192.168.2.105:6443 --kubeconfig=/root/dashbord-admin.conf
+kubectl config set-credentials admin --token=$DASH_TOCKEN --kubeconfig=/root/dashbord-admin.conf
+kubectl config set-context admin@kubernetes --cluster=kubernetes --user=admin --kubeconfig=/root/dashbord-admin.conf
+kubectl config use-context admin@kubernetes --kubeconfig=/root/dashbord-admin.conf
+
+
+echo '重新生成kube-dashboard证书, 允许使用Google Chrome浏览器访问'
 mkdir -p /opt/k8s/certs && cd /opt/k8s/certs
 openssl genrsa -out dashboard.key 2048
 openssl req -new -out dashboard.csr -key dashboard.key -subj '/CN=k8s.icivic.cn'
@@ -88,7 +103,16 @@ kubectl delete secret kubernetes-dashboard-certs -n kubernetes-dashboard
 kubectl create secret generic kubernetes-dashboard-certs --from-file=dashboard.key --from-file=dashboard.crt -n kubernetes-dashboard
 echo '重新生成Pod'
 kubectl get pod -n kubernetes-dashboard
-kubectl delete pod kubernetes-dashboard-7d54d9fb5d-8rk7c -n kubernetes-dashboard
+kubernetes_dashboard_id=`kubectl get pod -n kubernetes-dashboard | grep -Eo "kubernetes-dashboard[a-zA-Z0-9.-]+"`
+kubectl delete pod "$kubernetes_dashboard_id" -n kubernetes-dashboard
 echo '查看新的Pod'
 kubectl get pod -n kubernetes-dashboard
-kubectl describe pod kubernetes-dashboard-7d54d9fb5d-xfphz -n kubernetes-dashboard
+kubernetes_dashboard_id=`kubectl get pod -n kubernetes-dashboard | grep -Eo "kubernetes-dashboard[a-zA-Z0-9.-]+"`
+kubectl describe pod "$kubernetes_dashboard_id" -n kubernetes-dashboard
+
+echo '重新生成 kubeadm token'
+# kubeadm生成的token重新获取 https://blog.csdn.net/weixin_44208042/article/details/90676155
+kubeadm token create
+kubeadm token list  | awk -F" " '{print $1}' |tail -n 1
+openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed  's/^ .* //'
+#kubeadm join 192.168.40.8:6443 --token token填这里   --discovery-token-ca-cert-hash sha256:哈希值填这里
